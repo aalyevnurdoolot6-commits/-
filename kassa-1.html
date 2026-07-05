@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Касса">
+    <meta name="theme-color" content="#1a2744">
+    <title>Касса — Сомы</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f7;
+            margin: 0;
+            padding: 0;
+            color: #1a2744;
+            min-height: 100vh;
+            padding-bottom: 20px;
+        }
+
+        header {
+            background: #1a2744;
+            color: white;
+            padding: 18px 20px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+        header .date { font-size: 12px; opacity: 0.6; margin-top: 2px; }
+
+        .bills-section, .coins-section {
+            padding: 0 12px;
+            margin-top: 10px;
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #8a94a6;
+            padding: 8px 4px 6px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            padding: 10px 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        }
+
+        .nominal {
+            font-size: 17px;
+            font-weight: 700;
+            min-width: 70px;
+            color: #1a2744;
+        }
+
+        .nominal .type {
+            font-size: 11px;
+            font-weight: 400;
+            color: #8a94a6;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .btn {
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            transition: transform 0.08s;
+        }
+
+        .btn:active { transform: scale(0.92); }
+        .btn-minus { background: #fde8e8; color: #d63031; }
+        .btn-plus  { background: #e8f5ee; color: #2a7d4f; }
+
+        .count-input {
+            width: 54px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            padding: 6px 4px;
+            border: 2px solid #e8eaf0;
+            border-radius: 8px;
+            margin: 0 8px;
+            color: #1a2744;
+            background: #f8f9fc;
+            -moz-appearance: textfield;
+        }
+
+        .count-input:focus {
+            outline: none;
+            border-color: #1a2744;
+            background: white;
+        }
+
+        .count-input::-webkit-outer-spin-button,
+        .count-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+        .subtotal {
+            min-width: 72px;
+            text-align: right;
+            font-size: 15px;
+            font-weight: 600;
+            color: #2a7d4f;
+        }
+
+        .subtotal.zero { color: #c0c7d4; }
+
+        /* Total bar — at the BOTTOM */
+        .total-bar {
+            background: #2a7d4f;
+            color: white;
+            text-align: center;
+            padding: 16px 20px;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin: 14px 12px 0;
+            border-radius: 14px;
+        }
+
+        .total-bar .label {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            opacity: 0.75;
+            margin-bottom: 4px;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 10px;
+            padding: 12px;
+            margin-top: 6px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 15px;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .btn-reset  { background: #e74c3c; color: white; }
+        .btn-copy   { background: #1a2744; color: white; }
+        .btn-reset:active, .btn-copy:active { opacity: 0.8; }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1a2744;
+            color: white;
+            padding: 12px 22px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 100;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>💰 Касса</h1>
+        <div class="date" id="today-date"></div>
+    </div>
+</header>
+
+<div class="bills-section">
+    <div class="section-label">Купюры</div>
+    <div id="bills-list"></div>
+</div>
+
+<div class="coins-section">
+    <div class="section-label">Монеты</div>
+    <div id="coins-list"></div>
+</div>
+
+<!-- Итог ВНИЗУ -->
+<div class="total-bar">
+    <div class="label">Итого в кассе</div>
+    <span id="total-sum">0</span> сом
+</div>
+
+<div class="action-btns">
+    <button class="action-btn btn-reset" onclick="resetAll()">🔄 Обновить</button>
+    <button class="action-btn btn-copy"  onclick="copyReport()">📋 Отчёт</button>
+</div>
+
+<!-- Inline confirmation bar -->
+<div id="confirm-bar" style="display:none; position:fixed; bottom:0; left:0; right:0;
+    background:#1a2744; padding:16px 12px; gap:10px; z-index:200;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));">
+    <div style="color:white; font-size:14px; font-weight:600; text-align:center; width:100%; margin-bottom:10px;">
+        Обнулить всё и начать заново?
+    </div>
+    <div style="display:flex; gap:10px; width:100%;">
+        <button onclick="cancelReset()" style="flex:1; padding:14px; font-size:15px; font-weight:700;
+            border:none; border-radius:12px; background:#e8eaf0; color:#5a6480; cursor:pointer;">
+            Отмена
+        </button>
+        <button onclick="confirmReset()" style="flex:1; padding:14px; font-size:15px; font-weight:700;
+            border:none; border-radius:12px; background:#e74c3c; color:white; cursor:pointer;">
+            Да, обнулить
+        </button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const bills = [5000, 2000, 1000, 500, 200, 100, 50, 20];
+    const coins = [10, 5, 3, 1];
+    const allNominals = [...bills, ...coins];
+    const STORAGE_KEY = 'kassa_data';
+
+    const d = new Date();
+    document.getElementById('today-date').textContent =
+        d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    function createRow(nominal, type) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `
+            <div class="nominal">
+                ${nominal}<br>
+                <span class="type">${type === 'bill' ? 'купюра' : 'монета'}</span>
+            </div>
+            <div class="controls">
+                <button class="btn btn-minus" onclick="changeCount(${nominal}, -1)">−</button>
+                <input type="number" id="input-${nominal}" class="count-input"
+                    value="0" min="0" inputmode="numeric" pattern="[0-9]*">
+                <button class="btn btn-plus" onclick="changeCount(${nominal}, 1)">+</button>
+            </div>
+            <div class="subtotal zero" id="subtotal-${nominal}">0 сом</div>
+        `;
+        return row;
+    }
+
+    bills.forEach(n => document.getElementById('bills-list').appendChild(createRow(n, 'bill')));
+    coins.forEach(n => document.getElementById('coins-list').appendChild(createRow(n, 'coin')));
+
+    // Attach input listeners AFTER rows are created
+    allNominals.forEach(nominal => {
+        document.getElementById(`input-${nominal}`).addEventListener('input', () => {
+            updateRow(nominal);
+            saveData();
+            updateTotal();
+        });
+    });
+
+    function updateRow(nominal) {
+        const count = parseInt(document.getElementById(`input-${nominal}`).value) || 0;
+        const subtotal = count * nominal;
+        const el = document.getElementById(`subtotal-${nominal}`);
+        el.textContent = subtotal + ' сом';
+        el.className = 'subtotal' + (subtotal === 0 ? ' zero' : '');
+        return subtotal;
+    }
+
+    function updateTotal() {
+        let total = 0;
+        allNominals.forEach(nominal => {
+            const count = parseInt(document.getElementById(`input-${nominal}`).value) || 0;
+            total += count * nominal;
+        });
+        document.getElementById('total-sum').textContent = total.toLocaleString('ru-RU');
+    }
+
+    function changeCount(nominal, amount) {
+        const input = document.getElementById(`input-${nominal}`);
+        let val = parseInt(input.value) || 0;
+        val = Math.max(0, val + amount);
+        input.value = val;
+        updateRow(nominal);
+        saveData();
+        updateTotal();
+    }
+
+    // Save to localStorage
+    function saveData() {
+        const data = {};
+        allNominals.forEach(n => {
+            data[n] = parseInt(document.getElementById(`input-${n}`).value) || 0;
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // Load from localStorage on start
+    function loadData() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (!saved) return;
+            const data = JSON.parse(saved);
+            allNominals.forEach(n => {
+                if (data[n] !== undefined && data[n] > 0) {
+                    document.getElementById(`input-${n}`).value = data[n];
+                    updateRow(n);
+                }
+            });
+            updateTotal();
+        } catch(e) {}
+    }
+
+    // Reset button — clears everything
+    function resetAll() {
+        document.getElementById('confirm-bar').style.display = 'flex';
+    }
+
+    function confirmReset() {
+        allNominals.forEach(n => {
+            document.getElementById(`input-${n}`).value = 0;
+            const el = document.getElementById(`subtotal-${n}`);
+            el.textContent = '0 сом';
+            el.className = 'subtotal zero';
+        });
+        document.getElementById('total-sum').textContent = '0';
+        localStorage.removeItem(STORAGE_KEY);
+        document.getElementById('confirm-bar').style.display = 'none';
+        showToast('✓ Касса обнулена');
+    }
+
+    function cancelReset() {
+        document.getElementById('confirm-bar').style.display = 'none';
+    }
+
+    function copyReport() {
+        let text = `📋 Отчёт по кассе\n`;
+        text += `📅 ${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}\n\n`;
+        text += `💵 Купюры:\n`;
+
+        let total = 0;
+        bills.forEach(n => {
+            const count = parseInt(document.getElementById(`input-${n}`).value) || 0;
+            if (count > 0) {
+                const sub = count * n;
+                text += `  ${n} сом × ${count} = ${sub.toLocaleString('ru-RU')} сом\n`;
+                total += sub;
+            }
+        });
+
+        text += `\n🪙 Монеты:\n`;
+        coins.forEach(n => {
+            const count = parseInt(document.getElementById(`input-${n}`).value) || 0;
+            if (count > 0) {
+                const sub = count * n;
+                text += `  ${n} сом × ${count} = ${sub.toLocaleString('ru-RU')} сом\n`;
+                total += sub;
+            }
+        });
+
+        text += `\n💰 Итого в кассе: ${total.toLocaleString('ru-RU')} сом`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('✓ Отчёт скопирован!');
+        }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;opacity:0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('✓ Отчёт скопирован!');
+        });
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // Load saved data on startup
+    loadData();
+</script>
+
+</body>
+</html>
